@@ -229,19 +229,19 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
     bracket.map(_.toString()).getOrElse("") + densePart.toString()
 
   def prependInputAndReduce(input: GameInput)
-    : (List[LineUndergoingReduction], Either[GameOver, StableLine]) =
+    : ( /* Some if line becomes complete on input */ Option[List[LineUndergoingReduction]], Either[GameOver, StableLine]) =
     bracket match {
       case None =>
         input match
           case GameInput.LetterInput(letter) =>
-            val (history, r) =
+            val (reductionHistory, r) =
               attemptLeftmostReduction(
                 NonEmptyList(letter.asCompleteTerm, densePart.asTermList)
               )
-            (history, r.map(StableLine(None, _)))
+            (Some(reductionHistory), r.map(StableLine(None, _)))
           case GameInput.BracketInput(spaces) =>
             (
-              Nil,
+              None,
               Right(StableLine(
                 Some(BracketWithSpaceSomewhere.emptyBracketOf(spaces)),
                 densePart
@@ -250,11 +250,11 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
       case Some(bracketWithSpaceSomewhere) =>
         bracketWithSpaceSomewhere.slideInInputWithoutReduction(input) match
           case Left(completeTerm) =>
-            val (history, r) =
+            val (reductionHistory, r) =
               attemptLeftmostReduction(NonEmptyList(completeTerm, densePart.asTermList))
-            (history, r.map(StableLine(None, _)))
+            (Some(reductionHistory), r.map(StableLine(None, _)))
           case Right(newBracket) =>
-            (Nil, StableLine(Some(newBracket), densePart).checkLength)
+            (None, StableLine(Some(newBracket), densePart).checkLength)
     }
 }
 
@@ -277,7 +277,8 @@ object Combinatris:
 
     def appendInput(input: GameInput): Unit =
       val (history, result) = currentLine.prependInputAndReduce(input)
-      history.reverse.foreach(printLine)
+      history.foreach(_.reverse.foreach(printLine))
+
       result match
         case Left(GameOver.DetectedInfiniteLoop()) =>
           println("Detected infinite loop!")
@@ -289,10 +290,8 @@ object Combinatris:
           printStableLine(currentLine)
         case Right(newLine) =>
           currentLine = newLine
-          if (currentLine.bracket.nonEmpty)
-            // this is not included in the history
-            // FIXME: refactor
-            printStableLine(currentLine)
+          // no history was output, so the current line is not yet printed
+          if (history.isEmpty) then printStableLine(currentLine)
 
     while true do
       print(" > ")

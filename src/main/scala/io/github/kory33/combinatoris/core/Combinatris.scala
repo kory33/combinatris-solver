@@ -244,7 +244,7 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
               Nil,
               Right(StableLine(
                 Some(BracketWithSpaceSomewhere.emptyBracketOf(spaces)),
-                DenseLine.Empty
+                densePart
               ))
             )
       case Some(bracketWithSpaceSomewhere) =>

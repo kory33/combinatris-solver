@@ -259,23 +259,24 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
 object StableLine:
   def empty: StableLine = StableLine(None, DenseLine.Empty)
 
-object Combinatris:
+trait PrintCombinatrisLines:
+  def printLineWithLineString(lineString: String): Unit =
+    if (lineString.length > 30) then
+      println("    |" + lineString.take(30) + "|")
+    else
+      println("    |" + " ".repeat(30 - lineString.length) + lineString + "|")
+  def printStableLine(line: StableLine): Unit =
+    printLineWithLineString(line.toString())
+  def printLineUndergoingReduction(lineUndergoingReduction: LineUndergoingReduction): Unit =
+    printLineWithLineString(lineUndergoingReduction.map(_.toString()).toList.mkString(""))
+
+object CombinatrisGame extends PrintCombinatrisLines:
   def main(args: Array[String]): Unit = {
     var currentLine = StableLine.empty
 
-    def printLineWithLineString(lineString: String): Unit =
-      if (lineString.length > 30) then
-        println("    |" + lineString.take(30) + "|")
-      else
-        println("    |" + " ".repeat(30 - lineString.length) + lineString + "|")
-    def printStableLine(line: StableLine): Unit =
-      printLineWithLineString(line.toString())
-    def printLine(lineUndergoingReduction: LineUndergoingReduction): Unit =
-      printLineWithLineString(lineUndergoingReduction.map(_.toString()).toList.mkString(""))
-
     def appendInput(input: GameInput): Unit =
       val (history, result) = currentLine.prependInputAndReduce(input)
-      history.foreach(_.reverse.foreach(printLine))
+      history.foreach(_.reverse.foreach(printLineUndergoingReduction))
 
       result match
         case Left(GameOver.DetectedInfiniteLoop()) =>
@@ -312,4 +313,41 @@ object Combinatris:
         case _ =>
           println("Invalid input!")
       }
+  }
+
+object CombinatrisChainReactionExplorer extends PrintCombinatrisLines:
+  def main(args: Array[String]): Unit = {
+    val searched = collection.mutable.HashSet[StableLine]()
+    val searchNext = collection.mutable.Queue[StableLine]()
+
+    searchNext.enqueue(StableLine.empty)
+
+    var maxChainReactionFound = 0
+
+    while (searchNext.nonEmpty) {
+      val nextLineToTry = searchNext.dequeue()
+      if (!searched.contains(nextLineToTry)) {
+        searched.add(nextLineToTry)
+        GameInput.all.foreach { input =>
+          val (history, result) = nextLineToTry.prependInputAndReduce(input)
+          result match {
+            case Left(_) => // do nothing
+            case Right(newLine) =>
+              if (!searched.contains(newLine)) {
+                searchNext.enqueue(newLine)
+              }
+              history match {
+                case Some(reductionHistory) =>
+                  val chainReactionLength = reductionHistory.length - 1
+                  if (chainReactionLength > maxChainReactionFound) {
+                    maxChainReactionFound = chainReactionLength
+                    println(s"Found chain reaction of length $chainReactionLength")
+                    reductionHistory.reverse.foreach(printLineUndergoingReduction(_))
+                  }
+                case None => // do nothing
+              }
+          }
+        }
+      }
+    }
   }

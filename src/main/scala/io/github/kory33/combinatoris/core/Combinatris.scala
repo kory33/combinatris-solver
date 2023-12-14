@@ -364,3 +364,31 @@ object CombinatrisChainReactionBFSExplorer extends PrintCombinatrisLines:
       }
     }
   }
+
+object CombinatrisChainReactionDFSExplorer extends PrintCombinatrisLines:
+  def main(args: Array[String]): Unit = {
+    var maxChainReactionFound = 0
+    def dfs(from: StableLine): Unit =
+      if from.length > 20 then return
+      GameInput.all.foreach { input =>
+        val (history, result) = from.prependInputAndReduce(input)
+        result match {
+          case Left(_) => // do nothing
+          case Right(newLine) =>
+            history.foreach { reductionHistory =>
+              val chainReactionLength = reductionHistory.length - 1
+              if (chainReactionLength > maxChainReactionFound) {
+                maxChainReactionFound = chainReactionLength
+                println(s"Found chain reaction of length $chainReactionLength")
+                reductionHistory.reverse.foreach(printLineUndergoingReduction(_))
+              }
+            }
+
+            if (history.forall(_.length == 1)) {
+              dfs(newLine)
+            }
+        }
+      }
+
+    dfs(StableLine.empty)
+  }

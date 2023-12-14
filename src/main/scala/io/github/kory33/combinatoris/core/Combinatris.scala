@@ -315,9 +315,8 @@ object CombinatrisGame extends PrintCombinatrisLines:
       }
   }
 
-object CombinatrisChainReactionExplorer extends PrintCombinatrisLines:
+object CombinatrisChainReactionBFSExplorer extends PrintCombinatrisLines:
   def main(args: Array[String]): Unit = {
-    val searched = collection.mutable.HashSet[StableLine]()
     val searchNext = collection.mutable.Queue[StableLine]()
 
     searchNext.enqueue(StableLine.empty)
@@ -326,27 +325,41 @@ object CombinatrisChainReactionExplorer extends PrintCombinatrisLines:
 
     while (searchNext.nonEmpty) {
       val nextLineToTry = searchNext.dequeue()
-      if (!searched.contains(nextLineToTry)) {
-        searched.add(nextLineToTry)
-        GameInput.all.foreach { input =>
-          val (history, result) = nextLineToTry.prependInputAndReduce(input)
-          result match {
-            case Left(_) => // do nothing
-            case Right(newLine) =>
-              if (!searched.contains(newLine)) {
-                searchNext.enqueue(newLine)
+      GameInput.all.foreach { input =>
+        val (history, result) = nextLineToTry.prependInputAndReduce(input)
+        result match {
+          case Left(_) => // do nothing
+          case Right(newLine) =>
+            history.foreach { reductionHistory =>
+              val chainReactionLength = reductionHistory.length - 1
+              if (chainReactionLength > maxChainReactionFound) {
+                maxChainReactionFound = chainReactionLength
+                println(s"Found chain reaction of length $chainReactionLength")
+                reductionHistory.reverse.foreach(printLineUndergoingReduction(_))
               }
-              history match {
-                case Some(reductionHistory) =>
-                  val chainReactionLength = reductionHistory.length - 1
-                  if (chainReactionLength > maxChainReactionFound) {
-                    maxChainReactionFound = chainReactionLength
-                    println(s"Found chain reaction of length $chainReactionLength")
-                    reductionHistory.reverse.foreach(printLineUndergoingReduction(_))
-                  }
-                case None => // do nothing
-              }
-          }
+            }
+
+            if (history.forall(_.length == 1)) {
+              // We never record a result of reduction, so both
+              // newLine nor nextLineToTry are result of construction
+              // without reduction.
+              // It follows that there is only one way to reach newLine
+              // from StableLine.empty, so we can enqueue newLine
+              // without checking if it is already enqueued.
+              //
+              // By not recording the result of reductions, we are not visiting
+              // some configurations that can be reached by reduction.
+              // For instance, S(SS) can be reached by
+              //    SSS -(+S)> SSSS ~(reduce)> SS(SS) -(+K)> KSS(SS) ~(reduce)> S(SS)
+              // or
+              //    ( (  )) -(+S)> ... -(+S)> (S(SS)) ~(reduce)> S(SS)
+              // but not without reduction.
+              // The second path is actually an essence to how we can
+              // construct an arbitrary DenseLine (that is of length <= 28),
+              // which is to put everything in a bracket and then fill in the top-level
+              // space to complete the construction.
+              searchNext.enqueue(newLine)
+            }
         }
       }
     }

@@ -1,11 +1,8 @@
-package io.github.kory33.combinatoris.core
+package io.github.kory33.combinatris.core
 
 import scala.annotation.tailrec
 import cats.data.NonEmptyList
-import io.github.kory33.combinatoris.core.CompleteTerm.Combinator
-import io.github.kory33.combinatoris.core.CompleteTerm.Bracket
 
-type None = None.type
 type BracketSize = 2 | 3
 
 sealed trait Letter:
@@ -58,6 +55,7 @@ object CompleteTerm:
           case CompleteTerm.Combinator(_) => 1
           case CompleteTerm.Bracket(size, args) =>
             1 /* left bracket */ + args.toList.map(_.length).sum + 1 /* right bracket */
+import CompleteTerm._
 
 case class BracketWithSpaceSomewhere(
   size: BracketSize,

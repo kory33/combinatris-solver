@@ -1,6 +1,5 @@
 package io.github.kory33.combinatoris.core
 
-import scala.compiletime.ops.int._
 import scala.annotation.tailrec
 import cats.data.NonEmptyList
 import io.github.kory33.combinatoris.core.CompleteTerm.Combinator
@@ -174,39 +173,45 @@ type LineUndergoingReduction = NonEmptyList[CompleteTerm]
 @tailrec
 def attemptLeftmostReduction(
   toReduce: LineUndergoingReduction,
-  linesSeenSoFar: Set[LineUndergoingReduction] = Set()
-): Either[GameOver, /* .length <= maxTermSize */ DenseLine] = {
+  linesSeenSoFar: Set[LineUndergoingReduction] = Set(),
+  historyOfLines: List[LineUndergoingReduction] = Nil
+): (List[LineUndergoingReduction], Either[GameOver, /* .length <= maxTermSize */ DenseLine]) = {
+  val updatedHistory = toReduce :: historyOfLines
+
   if (linesSeenSoFar.contains(toReduce)) {
-    Left(GameOver.DetectedInfiniteLoop())
+    (updatedHistory, Left(GameOver.DetectedInfiniteLoop()))
   } else if (toReduce.map(_.length).toList.sum > maxTermSize) {
-    Left(GameOver.Overflowed())
+    (updatedHistory, Left(GameOver.Overflowed()))
   } else {
     // format: off
     toReduce match {
       case NonEmptyList(Combinator(letter), Nil) =>
-        Right(DenseLine.containing(letter))
+        (updatedHistory, Right(DenseLine.containing(letter)))
       case NonEmptyList(Combinator(Letter.I), nextTerm :: rest) =>
-        attemptLeftmostReduction(NonEmptyList(nextTerm, rest), linesSeenSoFar + toReduce)
+        attemptLeftmostReduction(NonEmptyList(nextTerm, rest), linesSeenSoFar + toReduce, updatedHistory)
       case NonEmptyList(Combinator(Letter.K), firstTerm :: secondTerm :: rest) =>
-        attemptLeftmostReduction(NonEmptyList(firstTerm, rest), linesSeenSoFar + toReduce)
+        attemptLeftmostReduction(NonEmptyList(firstTerm, rest), linesSeenSoFar + toReduce, updatedHistory)
       case NonEmptyList(Combinator(Letter.K), tail) =>
-        Right(DenseLine.K(tail.toList))
+        (updatedHistory, Right(DenseLine.K(tail.toList)))
       case NonEmptyList(Combinator(Letter.S), firstTerm :: secondTerm :: thirdTerm :: rest) =>
         attemptLeftmostReduction(
           NonEmptyList(firstTerm, thirdTerm :: CompleteTerm.Bracket(2, List(secondTerm, thirdTerm)) :: rest),
-          linesSeenSoFar + toReduce
+          linesSeenSoFar + toReduce,
+          updatedHistory
         )
       case NonEmptyList(Combinator(Letter.S), tail) =>
-        Right(DenseLine.S(tail.toList))
+        (updatedHistory, Right(DenseLine.S(tail.toList)))
       case NonEmptyList(Combinator(Letter.Y), firstTerm :: rest) =>
         attemptLeftmostReduction(
           NonEmptyList(firstTerm, CompleteTerm.Bracket(2, List(Combinator(Letter.Y), firstTerm)) :: rest),
-          linesSeenSoFar + toReduce
-      )
+          linesSeenSoFar + toReduce,
+          updatedHistory
+        )
       case NonEmptyList(Bracket(size, args), tail) =>
         attemptLeftmostReduction(
           NonEmptyList.fromListUnsafe(args) ++ tail,
-          linesSeenSoFar + toReduce
+          linesSeenSoFar + toReduce,
+          updatedHistory
         )
     }
     // format: on
@@ -223,27 +228,91 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
   override def toString(): String =
     bracket.map(_.toString()).getOrElse("") + densePart.toString()
 
-  def prependInputAndReduce(input: GameInput): Either[GameOver, StableLine] =
+  def prependInputAndReduce(input: GameInput)
+    : (List[LineUndergoingReduction], Either[GameOver, StableLine]) =
     bracket match {
       case None =>
         input match
           case GameInput.LetterInput(letter) =>
-            attemptLeftmostReduction(NonEmptyList(letter.asCompleteTerm, densePart.asTermList))
-              .map(StableLine(None, _))
+            val (history, r) =
+              attemptLeftmostReduction(
+                NonEmptyList(letter.asCompleteTerm, densePart.asTermList)
+              )
+            (history, r.map(StableLine(None, _)))
           case GameInput.BracketInput(spaces) =>
-            Right(StableLine(
-              Some(BracketWithSpaceSomewhere.emptyBracketOf(spaces)),
-              DenseLine.Empty
-            ))
+            (
+              Nil,
+              Right(StableLine(
+                Some(BracketWithSpaceSomewhere.emptyBracketOf(spaces)),
+                DenseLine.Empty
+              ))
+            )
       case Some(bracketWithSpaceSomewhere) =>
         bracketWithSpaceSomewhere.slideInInputWithoutReduction(input) match
           case Left(completeTerm) =>
-            attemptLeftmostReduction(NonEmptyList(completeTerm, densePart.asTermList))
-              .map(StableLine(None, _))
+            val (history, r) =
+              attemptLeftmostReduction(NonEmptyList(completeTerm, densePart.asTermList))
+            (history, r.map(StableLine(None, _)))
           case Right(newBracket) =>
-            StableLine(Some(newBracket), densePart).checkLength
+            (Nil, StableLine(Some(newBracket), densePart).checkLength)
     }
 }
 
 object StableLine:
   def empty: StableLine = StableLine(None, DenseLine.Empty)
+
+object Combinatris:
+  def main(args: Array[String]): Unit = {
+    var currentLine = StableLine.empty
+
+    def printLineWithLineString(lineString: String): Unit =
+      if (lineString.length > 30) then
+        println("    |" + lineString.take(30) + "|")
+      else
+        println("    |" + " ".repeat(30 - lineString.length) + lineString + "|")
+    def printStableLine(line: StableLine): Unit =
+      printLineWithLineString(line.toString())
+    def printLine(lineUndergoingReduction: LineUndergoingReduction): Unit =
+      printLineWithLineString(lineUndergoingReduction.map(_.toString()).toList.mkString(""))
+
+    def appendInput(input: GameInput): Unit =
+      val (history, result) = currentLine.prependInputAndReduce(input)
+      history.reverse.foreach(printLine)
+      result match
+        case Left(GameOver.DetectedInfiniteLoop()) =>
+          println("Detected infinite loop!")
+          println("-----------------------")
+          printStableLine(currentLine)
+        case Left(GameOver.Overflowed()) =>
+          println("Overflowed!")
+          println("-----------------------")
+          printStableLine(currentLine)
+        case Right(newLine) =>
+          currentLine = newLine
+          if (currentLine.bracket.nonEmpty)
+            // this is not included in the history
+            // FIXME: refactor
+            printStableLine(currentLine)
+
+    while true do
+      print(" > ")
+      val input = scala.io.StdIn.readLine()
+      input match {
+        case "exit" =>
+          return
+        case "S" =>
+          appendInput(GameInput.LetterInput(Letter.S))
+        case "K" =>
+          appendInput(GameInput.LetterInput(Letter.K))
+        case "I" =>
+          appendInput(GameInput.LetterInput(Letter.I))
+        case "Y" =>
+          appendInput(GameInput.LetterInput(Letter.Y))
+        case "2" =>
+          appendInput(GameInput.BracketInput(2))
+        case "3" =>
+          appendInput(GameInput.BracketInput(3))
+        case _ =>
+          println("Invalid input!")
+      }
+  }

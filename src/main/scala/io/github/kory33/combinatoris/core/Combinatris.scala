@@ -276,7 +276,13 @@ object CombinatrisGame extends PrintCombinatrisLines:
 
     def appendInput(input: GameInput): Unit =
       val (history, result) = currentLine.prependInputAndReduce(input)
-      history.foreach(_.reverse.foreach(printLineUndergoingReduction))
+      history.foreach { intermediateLines =>
+        intermediateLines.reverse.foreach(printLineUndergoingReduction)
+        intermediateLines match {
+          case _ :: next if next.length != 0 => println("+" + (10 * next.length) + "pts!")
+          case _                             =>
+        }
+      }
 
       result match
         case Left(GameOver.DetectedInfiniteLoop()) =>

@@ -97,7 +97,7 @@ case class BracketWithSpaceSomewhere(
           Right(copy(rightmostSpace = Some(BracketWithSpaceSomewhere.emptyBracketOf(spaces))))
 
   override def toString(): String =
-    "(" + " ".repeat(size - filledRest.length - 1) +
+    "(" + (" " * (size - filledRest.length - 1)) +
       rightmostSpace.map(_.toString()).getOrElse(" ") +
       filledRest.map(_.toString()).mkString("") +
       ")"
@@ -264,7 +264,7 @@ trait PrintCombinatrisLines:
     if (lineString.length > 30) then
       println("    |" + lineString.take(30) + "|")
     else
-      println("    |" + " ".repeat(30 - lineString.length) + lineString + "|")
+      println("    |" + (" " * (30 - lineString.length)) + lineString + "|")
   def printStableLine(line: StableLine): Unit =
     printLineWithLineString(line.toString())
   def printLineUndergoingReduction(lineUndergoingReduction: LineUndergoingReduction): Unit =

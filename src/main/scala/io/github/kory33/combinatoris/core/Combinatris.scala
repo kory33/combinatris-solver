@@ -341,9 +341,8 @@ object CombinatrisChainReactionBFSExplorer extends PrintCombinatrisLines:
 
             if (history.forall(_.length == 1)) {
               // We never record a result of reduction, so both
-              // newLine nor nextLineToTry are result of construction
-              // without reduction.
-              // It follows that there is only one way to reach newLine
+              // newLine and nextLineToTry are results of constructions
+              // without reduction. It follows that there is only one way to reach newLine
               // from StableLine.empty, so we can enqueue newLine
               // without checking if it is already enqueued.
               //

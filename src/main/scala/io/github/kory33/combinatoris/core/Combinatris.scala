@@ -13,6 +13,7 @@ sealed trait Letter:
       case Letter.K => "K"
       case Letter.I => "I"
       case Letter.Y => "Y"
+
 object Letter:
   case object S extends Letter
   case object K extends Letter
@@ -22,6 +23,7 @@ object Letter:
 enum GameInput:
   case LetterInput(letter: Letter)
   case BracketInput(spaces: BracketSize)
+
 object GameInput:
   val all: List[GameInput] =
     List(
@@ -40,6 +42,12 @@ sealed trait CompleteTerm {
         letter.toString()
       case CompleteTerm.Bracket(size, args) =>
         "(" + args.map(_.toString()).mkString("") + ")"
+
+  def length: Int =
+    this match
+      case CompleteTerm.Combinator(_) => 1
+      case CompleteTerm.Bracket(size, args) =>
+        1 /* left bracket */ + args.toList.map(_.length).sum + 1 /* right bracket */
 }
 object CompleteTerm:
   case class Combinator(letter: Letter) extends CompleteTerm
@@ -47,14 +55,6 @@ object CompleteTerm:
       extends CompleteTerm {
     assert(args.length == size)
   }
-
-  given Extensions: AnyRef with
-    extension (ct: CompleteTerm)
-      def length: Int =
-        ct match
-          case CompleteTerm.Combinator(_) => 1
-          case CompleteTerm.Bracket(size, args) =>
-            1 /* left bracket */ + args.toList.map(_.length).sum + 1 /* right bracket */
 import CompleteTerm._
 
 case class BracketWithSpaceSomewhere(
@@ -102,13 +102,20 @@ case class BracketWithSpaceSomewhere(
       filledRest.map(_.toString()).mkString("") +
       ")"
 }
-type SpaceOrBracketWithSpaceSomewhere = Option[BracketWithSpaceSomewhere]
+type SpaceOrBracketWithSpaceSomewhere =
+  /* None if it is a space */
+  Option[BracketWithSpaceSomewhere]
 
 object BracketWithSpaceSomewhere:
   def emptyBracketOf(spaces: BracketSize): BracketWithSpaceSomewhere =
     BracketWithSpaceSomewhere(spaces, None, Nil)
 
-sealed trait /* Irreducible */ DenseLine {
+/**
+ * A line that is complete but irreducible.
+ *
+ * All game states without leading "unfilled brackets" can be represented using this datatype.
+ */
+sealed trait DenseLine {
   def asTermList: List[CompleteTerm] =
     this match
       case DenseLine.S(args) => Letter.S.asCompleteTerm :: args
@@ -129,6 +136,17 @@ sealed trait /* Irreducible */ DenseLine {
         "Y"
       case DenseLine.Empty =>
         ""
+
+  def length: Int =
+    this match
+      case DenseLine.S(args) =>
+        1 /* S */ + args.toList.map(_.length).sum
+      case DenseLine.K(args) =>
+        1 /* K */ + args.toList.map(_.length).sum
+      case DenseLine.I | DenseLine.Y =>
+        1
+      case DenseLine.Empty =>
+        0
 }
 object DenseLine:
   case class S(args: /* .length < 3 */ List[CompleteTerm]) extends DenseLine {
@@ -140,19 +158,6 @@ object DenseLine:
   case object I extends DenseLine
   case object Y extends DenseLine
   case object Empty extends DenseLine
-
-  given Extensions: AnyRef with
-    extension (dl: DenseLine)
-      def length: Int =
-        dl match
-          case S(args) =>
-            1 /* S */ + args.toList.map(_.length).sum
-          case K(args) =>
-            1 /* K */ + args.toList.map(_.length).sum
-          case I | Y =>
-            1
-          case Empty =>
-            0
 
   def containing(letter: Letter): DenseLine =
     letter match

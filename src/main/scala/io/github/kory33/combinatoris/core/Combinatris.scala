@@ -71,10 +71,10 @@ case class BracketWithSpaceSomewhere(
       filledRest.map(_.length).sum /* filled rest */ +
       1 /* right bracket */
 
-  def slideInInputWithoutReduction(input: GameInput)
+  def slideInInputWithoutReductionOrLengthCheck(input: GameInput)
     : Either[CompleteTerm, BracketWithSpaceSomewhere] = rightmostSpace match
     case Some(innerBracketWithSpace) =>
-      innerBracketWithSpace.slideInInputWithoutReduction(input) match
+      innerBracketWithSpace.slideInInputWithoutReductionOrLengthCheck(input) match
         case Left(completeTerm) =>
           if filledRest.length + 1 == size then
             Left(CompleteTerm.Bracket(size, completeTerm :: filledRest))
@@ -178,7 +178,7 @@ def attemptLeftmostReduction(
   toReduce: LineUndergoingReduction,
   linesSeenSoFar: Set[LineUndergoingReduction] = Set(),
   historyOfLines: List[LineUndergoingReduction] = Nil
-): (List[LineUndergoingReduction], Either[GameOver, /* .length <= maxTermSize */ DenseLine]) = {
+): (List[LineUndergoingReduction], Either[GameOver, DenseLine /* .length <= maxTermSize */ ]) = {
   val updatedHistory = toReduce :: historyOfLines
 
   if (linesSeenSoFar.contains(toReduce)) {
@@ -251,7 +251,7 @@ case class StableLine(bracket: Option[BracketWithSpaceSomewhere], densePart: Den
               ))
             )
       case Some(bracketWithSpaceSomewhere) =>
-        bracketWithSpaceSomewhere.slideInInputWithoutReduction(input) match
+        bracketWithSpaceSomewhere.slideInInputWithoutReductionOrLengthCheck(input) match
           case Left(completeTerm) =>
             val (reductionHistory, r) =
               attemptLeftmostReduction(NonEmptyList(completeTerm, densePart.asTermList))

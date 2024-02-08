@@ -8,7 +8,7 @@ ThisBuild / libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-effect" % "3.5.2",
 
   // test libraries
-  "org.scalatest" %% "scalatest" % "3.2.17" % "test",
+  "org.scalatest" %% "scalatest" % "3.2.18" % "test",
   "org.scalatestplus" %% "scalacheck-1-15" % "3.2.11.0" % "test"
 )
 

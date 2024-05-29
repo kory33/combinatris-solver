@@ -3,7 +3,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 
 ThisBuild / libraryDependencies ++= Seq(
   // cats libraries
-  "org.typelevel" %% "cats-core" % "2.10.0",
+  "org.typelevel" %% "cats-core" % "2.12.0",
   "org.typelevel" %% "cats-kernel" % "2.10.0",
   "org.typelevel" %% "cats-effect" % "3.5.2",
 
